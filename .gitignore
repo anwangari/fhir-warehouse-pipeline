@@ -1,0 +1,63 @@
+# --- Private planning / working docs (keep local, not public) ---
+CLAUDE.md
+SPRINT.md
+
+# --- Generated data (synthetic, bulky, reproducible — never commit) ---
+data/
+*.csv
+!tests/**/*.csv          # keep small test fixtures if any are CSV
+output/
+tmp/
+
+# --- Secrets / credentials ---
+.env
+.env.*
+*.pem
+*.key
+aws.json
+.aws/
+credentials
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.installed.cfg
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Testing / coverage ---
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- IDE / editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Docker ---
+# (compose file is committed; local volumes are not)
+pgdata/
