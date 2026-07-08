@@ -1,0 +1,23 @@
+# Normalize line endings: author on Windows, deploy on Linux.
+# Force LF in the repo for everything text so files behave on the Linux target.
+* text=auto eol=lf
+
+# Explicit LF for code / config / SQL / shell
+*.py    text eol=lf
+*.sql   text eol=lf
+*.sh    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.json  text eol=lf
+*.cfg   text eol=lf
+*.ini   text eol=lf
+.env*   text eol=lf
+
+# Binary files — never touch line endings
+*.png   binary
+*.jpg   binary
+*.jar   binary
+*.gz    binary
+*.zip   binary

@@ -65,3 +65,11 @@ Number entries sequentially. Never delete an entry — if a decision is reversed
 **Alternatives considered:** (a) Only use Synthea; (b) commit a few static sample bundles.
 **Tradeoff / why:** The generator deliberately reproduces the shapes the parser must handle — `urn:uuid` intra-bundle references, US Core race/ethnicity extensions, and Observation `value[x]` polymorphism — so parser logic is exercised against realistic edge cases with no external dependency. It's labeled a dev fixture, not a Synthea substitute; the portfolio run still uses Synthea. Static committed bundles were rejected because a seedable generator gives controllable variety and volume. Generated data stays under `data/` and is gitignored.
 **Revisit if:** Synthea coverage is always available in the working environment — then the generator is only needed for unit-test fixtures.
+
+### 007 — Windows for dev, Linux for deploy; enforce LF line endings
+**Date:** 2026-07-08
+**Context:** Development happens on Windows, but the pipeline deploys to Linux. Mixed CRLF/LF line endings can break shell scripts and produce noisy diffs across the two environments.
+**Decision:** Support Windows locally via `docs/setup_windows.md` (PowerShell), keep everything else cross-platform (Docker, `pathlib`, SQL), and add a `.gitattributes` that forces `LF` for all text files in the repo.
+**Alternatives considered:** (a) Rely on each dev's `core.autocrlf` git setting; (b) author everything on Linux/WSL only.
+**Tradeoff / why:** `.gitattributes` makes line endings a property of the repo, not of each machine's git config — so a file authored on Windows lands as `LF` and runs correctly on the Linux deploy target with no per-dev setup. Relying on `autocrlf` is fragile because it varies by machine. Forcing WSL-only dev adds friction with no benefit for this project's simple toolchain.
+**Revisit if:** A tool requires CRLF (e.g. a Windows-only batch file) — scope that exception in `.gitattributes` rather than dropping the global rule.
