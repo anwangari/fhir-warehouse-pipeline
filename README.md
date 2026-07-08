@@ -5,6 +5,8 @@ them into relational tables, loads to Postgres, and lands raw data in S3.
 
 **Data:** 100% synthetic, generated with Synthea. No real PHI.
 
+### STILL A WORK-IN-PROGRESS (Come back in 2 weeks or less)
+
 ## Architecture
 ![architecture](diagrams/architecture.png)
 [Synthea bundles] → [Python parser] → [CSV] → [Postgres] 
