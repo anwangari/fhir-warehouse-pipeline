@@ -57,3 +57,11 @@ Number entries sequentially. Never delete an entry — if a decision is reversed
 **Alternatives considered:** Parse in place and keep only the warehouse tables.
 **Tradeoff / why:** A raw immutable landing zone means history can be replayed if the parser or field mapping changes later — reprocess from raw instead of regenerating. It also gives an audit trail and a schema-on-read fallback. This raw-zone-first pattern is standard in healthcare, where a mapping fix often requires reprocessing prior loads. Cost is a little extra storage and an upload step — negligible for the value.
 **Revisit if:** N/A for this project — this is a keeper pattern for the whole arc.
+
+### 006 — Offline fixture generator alongside Synthea
+**Date:** 2026-07-08
+**Context:** Synthea is the real data source, but it needs Java + a ~15 MB download. Parser development shouldn't be blocked when that environment isn't available.
+**Decision:** Keep Synthea as the primary/portfolio data path (documented in `docs/synthea.md`), and add `scripts/generate_sample_bundles.py` that emits Synthea-shaped R4 bundles for offline development.
+**Alternatives considered:** (a) Only use Synthea; (b) commit a few static sample bundles.
+**Tradeoff / why:** The generator deliberately reproduces the shapes the parser must handle — `urn:uuid` intra-bundle references, US Core race/ethnicity extensions, and Observation `value[x]` polymorphism — so parser logic is exercised against realistic edge cases with no external dependency. It's labeled a dev fixture, not a Synthea substitute; the portfolio run still uses Synthea. Static committed bundles were rejected because a seedable generator gives controllable variety and volume. Generated data stays under `data/` and is gitignored.
+**Revisit if:** Synthea coverage is always available in the working environment — then the generator is only needed for unit-test fixtures.
