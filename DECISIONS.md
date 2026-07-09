@@ -89,3 +89,27 @@ Number entries sequentially. Never delete an entry — if a decision is reversed
 **Alternatives considered:** (a) Store the raw `value[x]` as JSON and branch in SQL; (b) drop component-only observations; (c) one column per possible type.
 **Tradeoff / why:** Fixed columns mean downstream SQL never has to know FHIR's type system — analytics stays simple, which is the project's guiding principle. Exploding components turns nested panels into queryable rows (you can actually query systolic BP), instead of losing 1,343 observations. Storing raw JSON pushes the complexity onto every query; dropping panels loses real clinical data.
 **Revisit if:** We need to preserve exact panel grouping — add a `parent_observation_id` column rather than collapsing the explode.
+
+### 010 — Parser structure: dispatch table + single reference resolver
+**Date:** 2026-07-08
+**Context:** The parser will grow from Patient to four resource types. It needs to stay simple and testable as it grows, and reference handling appears in every child resource.
+**Decision:** One `PARSERS` dispatch table maps `resourceType` → (parse function, target table); `iter_resources()` streams resources from files; a single `resolve_reference()` owns all `urn:uuid` / `ResourceType/id` / external-ref logic. Each parser is a pure function `resource dict -> row dict` with safe getters, unit-tested in isolation.
+**Alternatives considered:** (a) One big function with `if resourceType == …` branches; (b) a class hierarchy of resource parsers.
+**Tradeoff / why:** Pure functions + a dispatch table read at a glance and let each resource be tested with a hand-made fixture — a schema change breaks a test, not production. Centralizing reference resolution means the tricky URN logic lives (and is tested) in one place. A class hierarchy is over-engineered for four flat mappings and works against the project's simplicity principle.
+**Revisit if:** Resource count grows large enough that per-type modules beat one file — unlikely for this project.
+
+### 011 — Export Synthea with US Core IG on (regenerate)
+**Date:** 2026-07-08
+**Context:** The first real batch was exported with `use_us_core_ig false`, so 57/57 real patients lack `us-core-race`/`us-core-ethnicity` extensions — race/ethnicity come out null. These demographics power health-equity analytics, which is exactly the kind of question a provider/payer asks.
+**Decision:** Regenerate the batch with `--exporter.fhir.use_us_core_ig true`; update `docs/synthea.md` accordingly. Also purge the Day-1 offline fixture bundles from `data/fhir/` so the batch is pure Synthea.
+**Alternatives considered:** (a) Keep US Core off and drop race/ethnicity from scope; (b) leave the fixtures mixed in.
+**Tradeoff / why:** US Core is the profile real US healthcare systems actually require, so exporting with it on is both more realistic and unlocks the demographic dimensions. Mixed fixture+real data produced a confusing null pattern and isn't a clean portfolio dataset. Cost is a one-command regenerate. (Parser code is already correct either way — it reads the extensions when present and yields None when absent.)
+**Revisit if:** N/A — US Core on is the right default for a US healthcare portfolio.
+
+### 012 — Keep deceased patients; capture deceased_date
+**Date:** 2026-07-08
+**Context:** Synthea's `-p N` keeps N *living* patients but also exports patients who died during the simulation (this batch: 50 living + 11 deceased = 61). Also learned Synthea appends to the output dir across runs, which had inflated counts until the folder was wiped and regenerated.
+**Decision:** Keep deceased patients in the dataset and add a `deceased_date` column (`Patient.deceasedDateTime`, null for the living). Document the "wipe before regenerate" step in `docs/synthea.md`.
+**Alternatives considered:** (a) Generate living-only with `--generate.only_alive_patients true`; (b) keep deceased but not record it.
+**Tradeoff / why:** Real provider/payer cohorts include the deceased, and mortality is a legitimate analytic dimension (e.g. deaths per condition, age-at-death). Keeping them without a `deceased_date` would make that population invisible downstream, so capturing the date is what gives the choice meaning. Living-only is cleaner for a pure demo but less realistic. Cost is one nullable column.
+**Revisit if:** A specific analysis needs living-only — filter on `deceased_date IS NULL` rather than dropping the data at ingest.

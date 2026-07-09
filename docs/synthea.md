@@ -18,10 +18,21 @@ curl -L -o synthea-with-dependencies.jar \
 java -jar synthea-with-dependencies.jar \
   -p 50 \
   --exporter.fhir.export true \
-  --exporter.fhir.use_us_core_ig false \
+  --exporter.fhir.use_us_core_ig true \
   --exporter.baseDirectory ./data \
   Massachusetts
 ```
+
+> ⚠️ **Synthea appends — it does not clear the output folder.** Re-running
+> adds new bundles alongside the old ones, so patient counts accumulate across
+> runs. Wipe `data/fhir/` (and `data/csv/`) before regenerating:
+> `Remove-Item .\data\fhir\*.json, .\data\csv\*.csv` (PowerShell) /
+> `rm -f data/fhir/*.json data/csv/*.csv` (bash).
+>
+> ⚠️ **`-p N` = N *living* patients.** Synthea also exports patients who died
+> during the simulation, so the total exceeds N. We **keep the deceased**
+> (DECISIONS #012); add `--generate.only_alive_patients true` if you ever want
+> living-only.
 
 Output lands in `./data/fhir/*.json`. Each file is a FHIR `Bundle`
 (`resourceType: "Bundle"`) with an `entry[]` array; every entry wraps a

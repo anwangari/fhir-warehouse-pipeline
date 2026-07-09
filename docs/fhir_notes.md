@@ -60,6 +60,7 @@ are out of v1 scope and ignored.
 | `given_name`  | `name[0].given[0]`                                                         | Synthea appends digits, e.g. `Adrian111` |
 | `gender`      | `gender`                                                                   | male / female |
 | `birth_date`  | `birthDate`                                                                | `YYYY-MM-DD` |
+| `deceased_date` | `deceasedDateTime`                                                       | `None` if living; deceased patients are kept (DECISIONS #012) |
 | `race`        | `extension[url=…us-core-race].extension[url=ombCategory].valueCoding.display` | US Core extension |
 | `ethnicity`   | `extension[url=…us-core-ethnicity].extension[url=ombCategory].valueCoding.display` | US Core extension |
 | `city`        | `address[0].city`                                                          | |

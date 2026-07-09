@@ -73,7 +73,7 @@ curl.exe -L -o synthea-with-dependencies.jar `
 java -jar synthea-with-dependencies.jar `
   -p 50 `
   --exporter.fhir.export true `
-  --exporter.fhir.use_us_core_ig false `
+  --exporter.fhir.use_us_core_ig true `
   --exporter.baseDirectory .\data `
   Massachusetts
 ```
