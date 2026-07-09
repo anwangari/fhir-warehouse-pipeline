@@ -73,3 +73,19 @@ Number entries sequentially. Never delete an entry — if a decision is reversed
 **Alternatives considered:** (a) Rely on each dev's `core.autocrlf` git setting; (b) author everything on Linux/WSL only.
 **Tradeoff / why:** `.gitattributes` makes line endings a property of the repo, not of each machine's git config — so a file authored on Windows lands as `LF` and runs correctly on the Linux deploy target with no per-dev setup. Relying on `autocrlf` is fragile because it varies by machine. Forcing WSL-only dev adds friction with no benefit for this project's simple toolchain.
 **Revisit if:** A tool requires CRLF (e.g. a Windows-only batch file) — scope that exception in `.gitattributes` rather than dropping the global rule.
+
+### 008 — v1 resource scope: Patient, Encounter, Condition, Observation
+**Date:** 2026-07-08
+**Context:** A Synthea batch emits ~20 resource types (Observation, Procedure, Claim, ExplanationOfBenefit, DiagnosticReport, MedicationRequest, Immunization, …). Parsing all of them is a lot of surface area for a v1.
+**Decision:** Scope v1 to the four resources that form the clinical spine — Patient, Encounter, Condition, Observation. All other types pass through unparsed.
+**Alternatives considered:** (a) Parse everything Synthea emits; (b) start with Patient only.
+**Tradeoff / why:** These four give a complete, join-able clinical story (who / when / what diagnosis / what measurement) and cover the hard parsing problems (reference resolution, `value[x]` polymorphism, US Core extensions). Parsing all 20 types would multiply effort without adding new *kinds* of problem — the marginal resource is just another flatten. Patient-only is too thin to demonstrate FK modeling. Claims are deliberately deferred: they're the subject of Project 2.
+**Revisit if:** A portfolio question needs meds or procedures — adding a resource is an additive parse function + table, not a redesign.
+
+### 009 — Normalize Observation value[x] into fixed columns; explode components
+**Date:** 2026-07-08
+**Context:** FHIR Observations use `value[x]` polymorphism. In the real batch: 21,727 `valueQuantity`, 4,601 `valueCodeableConcept`, 7 `valueString`, and 1,343 with **no top-level value** — panels (e.g. blood pressure) that carry their measurements in `component[]`.
+**Decision:** Flatten every observation into fixed columns — `value_type`, `value_num`, `value_unit`, `value_text` — set by the source type. For `component[]`-only panels, emit **one row per component**, using the component's own code and value, keeping the parent code as context.
+**Alternatives considered:** (a) Store the raw `value[x]` as JSON and branch in SQL; (b) drop component-only observations; (c) one column per possible type.
+**Tradeoff / why:** Fixed columns mean downstream SQL never has to know FHIR's type system — analytics stays simple, which is the project's guiding principle. Exploding components turns nested panels into queryable rows (you can actually query systolic BP), instead of losing 1,343 observations. Storing raw JSON pushes the complexity onto every query; dropping panels loses real clinical data.
+**Revisit if:** We need to preserve exact panel grouping — add a `parent_observation_id` column rather than collapsing the explode.
