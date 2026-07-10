@@ -99,3 +99,75 @@ def test_parse_patient_deceased_date():
 
 def test_parse_patient_living_has_no_deceased_date():
     assert pf.parse_patient(_patient())["deceased_date"] is None
+
+
+# --- encounters -----------------------------------------------------------
+
+def _encounter():
+    return {
+        "resourceType": "Encounter",
+        "id": "enc-1",
+        "status": "finished",
+        "class": {"code": "AMB"},
+        "type": [{"coding": [{"code": "162673000", "display": "General examination"}]}],
+        "subject": {"reference": "urn:uuid:pat-1"},
+        "period": {"start": "2007-03-23T16:12:06-04:00", "end": "2007-03-23T16:47:34-04:00"},
+    }
+
+
+def test_parse_encounter_fields_and_fk():
+    row = pf.parse_encounter(_encounter())
+    assert row["encounter_id"] == "enc-1"
+    assert row["patient_id"] == "pat-1"          # reference resolved
+    assert row["class"] == "AMB"
+    assert row["type_code"] == "162673000"
+    assert row["type_display"] == "General examination"
+    assert row["start"] and row["end"]
+
+
+def test_parse_encounter_missing_period_ok():
+    e = _encounter(); del e["period"]
+    row = pf.parse_encounter(e)
+    assert row["start"] is None and row["end"] is None
+
+
+# --- conditions -----------------------------------------------------------
+
+def _condition():
+    return {
+        "resourceType": "Condition",
+        "id": "cond-1",
+        "clinicalStatus": {"coding": [{"code": "active"}]},
+        "code": {"coding": [{"code": "44054006", "display": "Diabetes mellitus type 2"}]},
+        "subject": {"reference": "urn:uuid:pat-1"},
+        "encounter": {"reference": "urn:uuid:enc-1"},
+        "onsetDateTime": "2010-05-01T00:00:00-04:00",
+    }
+
+
+def test_parse_condition_fields_and_fks():
+    row = pf.parse_condition(_condition())
+    assert row["condition_id"] == "cond-1"
+    assert row["patient_id"] == "pat-1"
+    assert row["encounter_id"] == "enc-1"
+    assert row["code"] == "44054006"
+    assert row["display"] == "Diabetes mellitus type 2"
+    assert row["clinical_status"] == "active"
+
+
+def test_parse_condition_without_encounter():
+    c = _condition(); del c["encounter"]
+    assert pf.parse_condition(c)["encounter_id"] is None   # optional FK -> None
+
+
+# --- orphan handling ------------------------------------------------------
+
+def test_child_with_unresolvable_patient_is_skipped(tmp_path):
+    enc = _encounter()
+    enc["subject"] = {"reference": "Practitioner?identifier=x|1"}  # unresolvable
+    bundle = {"resourceType": "Bundle",
+              "entry": [{"resource": _patient()}, {"resource": enc}]}
+    (tmp_path / "b.json").write_text(json.dumps(bundle))
+    tables = pf.parse_bundles(tmp_path)
+    assert len(tables["patients"]) == 1
+    assert len(tables["encounters"]) == 0        # orphan skipped, not loaded

@@ -58,6 +58,12 @@ def _us_core_display(extensions, url):
     return None
 
 
+def coding(concept):
+    """(code, display) from the first coding of a CodeableConcept."""
+    c = first((concept or {}).get("coding")) or {}
+    return c.get("code"), c.get("display")
+
+
 # --- resource parsers -----------------------------------------------------
 
 def parse_patient(res):
@@ -78,11 +84,43 @@ def parse_patient(res):
     }
 
 
-# resourceType -> (parser, target table). Extended on Days 4-5.
+def parse_encounter(res):
+    type_code, type_display = coding(first(res.get("type")))
+    period = res.get("period") or {}
+    return {
+        "encounter_id": res.get("id"),
+        "patient_id": resolve_reference(res.get("subject")),
+        "class": (res.get("class") or {}).get("code"),
+        "type_code": type_code,
+        "type_display": type_display,
+        "status": res.get("status"),
+        "start": period.get("start"),
+        "end": period.get("end"),
+    }
+
+
+def parse_condition(res):
+    code, display = coding(res.get("code"))
+    clin_code, _ = coding(res.get("clinicalStatus"))
+    return {
+        "condition_id": res.get("id"),
+        "patient_id": resolve_reference(res.get("subject")),
+        "encounter_id": resolve_reference(res.get("encounter")),
+        "code": code,
+        "display": display,
+        "clinical_status": clin_code,
+        "onset_date": res.get("onsetDateTime"),
+        "recorded_date": res.get("recordedDate"),
+    }
+
+
+# resourceType -> (parser, target table). Extended on Day 5 (Observation).
 PARSERS = {
     "Patient": (parse_patient, "patients"),
+    "Encounter": (parse_encounter, "encounters"),
+    "Condition": (parse_condition, "conditions"),
 }
-TABLES = ("patients",)
+TABLES = ("patients", "encounters", "conditions")
 
 
 # --- bundle reading -------------------------------------------------------
@@ -113,8 +151,10 @@ def parse_bundles(fhir_dir=DATA_DIR):
         except Exception as e:                  # fail-soft per resource (DECISIONS #009)
             log.warning("skipped %s %s: %s", rtype, res.get("id"), e)
             continue
-        if table == "patients" and not row.get("patient_id"):
-            log.warning("skipped Patient with no id")
+        # Every row needs a patient_id: it's the PK for patients and the FK
+        # for children. No patient_id -> would be an orphan, so skip and log.
+        if not row.get("patient_id"):
+            log.warning("skipped %s %s: no patient_id", rtype, res.get("id"))
             continue
         tables[table].append(row)
 
@@ -140,6 +180,8 @@ def write_csv(rows, path):
 def main():
     tables = parse_bundles()
     write_csv(tables["patients"], OUT_DIR / "patients.csv")
+    write_csv(tables["encounters"], OUT_DIR / "encounters.csv")
+    write_csv(tables["conditions"], OUT_DIR / "conditions.csv")
 
 
 if __name__ == "__main__":

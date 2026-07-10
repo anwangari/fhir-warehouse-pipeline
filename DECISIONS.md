@@ -113,3 +113,11 @@ Number entries sequentially. Never delete an entry — if a decision is reversed
 **Alternatives considered:** (a) Generate living-only with `--generate.only_alive_patients true`; (b) keep deceased but not record it.
 **Tradeoff / why:** Real provider/payer cohorts include the deceased, and mortality is a legitimate analytic dimension (e.g. deaths per condition, age-at-death). Keeping them without a `deceased_date` would make that population invisible downstream, so capturing the date is what gives the choice meaning. Living-only is cleaner for a pure demo but less realistic. Cost is one nullable column.
 **Revisit if:** A specific analysis needs living-only — filter on `deceased_date IS NULL` rather than dropping the data at ingest.
+
+### 013 — Encounters/Conditions: keep code + display, generalize orphan-skip
+**Date:** 2026-07-08
+**Context:** Adding Encounter and Condition parsers. Both carry coded values (SNOMED) and foreign keys to Patient (and Encounter), and Synthea references are all `urn:uuid`. Verified against the real batch: 61 patients, 4,018 encounters, 2,753 conditions, **zero orphan references**.
+**Decision:** (1) A single `coding()` helper returns `(code, display)` from the first coding of any CodeableConcept, and both are stored in every coded table. (2) The orphan rule is generalized: **every row must have a `patient_id`** (PK for patients, FK for children); a resource whose patient reference doesn't resolve is skipped and logged rather than loaded. (3) `encounter_id` on a Condition is optional (nullable FK).
+**Alternatives considered:** (a) Store only the code and join to a code lookup for display; (b) load orphans with a null FK and clean up later; (c) fail the run on any orphan.
+**Tradeoff / why:** Keeping `display` alongside `code` makes CSVs and ad-hoc queries human-readable without a dimension join — worth the small redundancy at this scale. The uniform "no patient_id → skip + log" rule keeps referential integrity at ingest so the warehouse never holds orphan rows, while staying fail-soft per resource (aggregate problems surface in the DQ gates, not as a crash). A code-lookup table is premature normalization; loading orphans defers a problem into the warehouse.
+**Revisit if:** Display strings drift from codes and need governance — introduce a code/reference dimension then.
