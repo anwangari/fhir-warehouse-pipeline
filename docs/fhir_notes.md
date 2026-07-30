@@ -117,7 +117,8 @@ Base columns:
 
 | Column           | JSON path                        | Notes |
 |------------------|----------------------------------|-------|
-| `observation_id` | `id`                             | PK |
+| `observation_id` | `id` (component rows: `id#i`)    | PK; surrogate `#i` suffix per component |
+| `parent_observation_id` | `id` of the panel         | null for simple obs; set on exploded component rows (DECISIONS #014) |
 | `patient_id`     | resolve(`subject.reference`)     | FK → patients |
 | `encounter_id`   | resolve(`encounter.reference`)   | FK → encounters |
 | `code`           | `code.coding[0].code`            | LOINC |

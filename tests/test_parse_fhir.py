@@ -171,3 +171,59 @@ def test_child_with_unresolvable_patient_is_skipped(tmp_path):
     tables = pf.parse_bundles(tmp_path)
     assert len(tables["patients"]) == 1
     assert len(tables["encounters"]) == 0        # orphan skipped, not loaded
+
+
+# --- observations: value[x] + component explode ---------------------------
+
+def _obs(**value):
+    base = {
+        "resourceType": "Observation",
+        "id": "obs-1",
+        "category": [{"coding": [{"code": "vital-signs"}]}],
+        "code": {"coding": [{"code": "8302-2", "display": "Body Height"}]},
+        "subject": {"reference": "urn:uuid:pat-1"},
+        "encounter": {"reference": "urn:uuid:enc-1"},
+        "effectiveDateTime": "2020-01-01T00:00:00-05:00",
+    }
+    base.update(value)
+    return base
+
+
+def test_observation_quantity_one_row():
+    row = pf.parse_observation(_obs(valueQuantity={"value": 168.8, "unit": "cm"}))
+    assert isinstance(row, dict)
+    assert row["value_type"] == "quantity"
+    assert row["value_num"] == 168.8 and row["value_unit"] == "cm"
+    assert row["patient_id"] == "pat-1" and row["encounter_id"] == "enc-1"
+    assert row["parent_observation_id"] is None
+
+
+def test_observation_codeable_uses_value_text():
+    row = pf.parse_observation(_obs(
+        valueCodeableConcept={"coding": [{"code": "8517006", "display": "Former smoker"}]}))
+    assert row["value_type"] == "codeable"
+    assert row["value_text"] == "Former smoker"
+    assert row["value_num"] is None
+
+
+def test_observation_component_explodes():
+    panel = _obs()
+    panel["code"] = {"coding": [{"code": "85354-9", "display": "Blood pressure panel"}]}
+    panel["component"] = [
+        {"code": {"coding": [{"display": "Systolic Blood Pressure"}]},
+         "valueQuantity": {"value": 110, "unit": "mm[Hg]"}},
+        {"code": {"coding": [{"display": "Diastolic Blood Pressure"}]},
+         "valueQuantity": {"value": 76, "unit": "mm[Hg]"}},
+    ]
+    rows = pf.parse_observation(panel)
+    assert isinstance(rows, list) and len(rows) == 2
+    assert {r["observation_id"] for r in rows} == {"obs-1#0", "obs-1#1"}   # unique PKs
+    assert all(r["parent_observation_id"] == "obs-1" for r in rows)        # grouped
+    assert all(r["value_type"] == "component" for r in rows)
+    assert rows[0]["display"] == "Systolic Blood Pressure" and rows[0]["value_num"] == 110
+
+
+def test_observation_with_no_value():
+    row = pf.parse_observation(_obs())
+    assert row["value_type"] is None
+    assert row["value_num"] is None and row["value_text"] is None

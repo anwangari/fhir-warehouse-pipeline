@@ -114,13 +114,81 @@ def parse_condition(res):
     }
 
 
-# resourceType -> (parser, target table). Extended on Day 5 (Observation).
+def _value_fields(node):
+    """(value_num, value_unit, value_text) from a value[x] node (obs or component)."""
+    if "valueQuantity" in node:
+        q = node["valueQuantity"]
+        return q.get("value"), q.get("unit"), None
+    if "valueCodeableConcept" in node:
+        _, disp = coding(node["valueCodeableConcept"])
+        return None, None, disp
+    if "valueString" in node:
+        return None, None, node.get("valueString")
+    return None, None, None
+
+
+def parse_observation(res):
+    """One Observation -> one or more flat rows.
+
+    Normalizes FHIR value[x] polymorphism into fixed columns and explodes
+    component[] panels (e.g. blood pressure) into one row per component,
+    linked back via parent_observation_id. See DECISIONS #009 / #014.
+    """
+    obs_id = res.get("id")
+    cat_code, _ = coding(first(res.get("category")))
+    base = {
+        "patient_id": resolve_reference(res.get("subject")),
+        "encounter_id": resolve_reference(res.get("encounter")),
+        "category": cat_code,
+        "effective": res.get("effectiveDateTime"),
+    }
+
+    components = res.get("component")
+    if components:                                   # panel -> one row per component
+        rows = []
+        for i, comp in enumerate(components):
+            c_code, c_display = coding(comp.get("code"))
+            num, unit, text = _value_fields(comp)
+            rows.append({
+                "observation_id": f"{obs_id}#{i}",   # unique PK per component
+                "parent_observation_id": obs_id,     # groups the panel
+                **base,
+                "code": c_code,
+                "display": c_display,
+                "value_type": "component",
+                "value_num": num,
+                "value_unit": unit,
+                "value_text": text,
+            })
+        return rows
+
+    code, display = coding(res.get("code"))          # simple observation -> one row
+    num, unit, text = _value_fields(res)
+    value_type = ("quantity" if num is not None
+                  else "codeable" if text is not None and "valueCodeableConcept" in res
+                  else "string" if "valueString" in res
+                  else None)
+    return {
+        "observation_id": obs_id,
+        "parent_observation_id": None,
+        **base,
+        "code": code,
+        "display": display,
+        "value_type": value_type,
+        "value_num": num,
+        "value_unit": unit,
+        "value_text": text,
+    }
+
+
+# resourceType -> (parser, target table).
 PARSERS = {
     "Patient": (parse_patient, "patients"),
     "Encounter": (parse_encounter, "encounters"),
     "Condition": (parse_condition, "conditions"),
+    "Observation": (parse_observation, "observations"),
 }
-TABLES = ("patients", "encounters", "conditions")
+TABLES = ("patients", "encounters", "conditions", "observations")
 
 
 # --- bundle reading -------------------------------------------------------
@@ -147,16 +215,18 @@ def parse_bundles(fhir_dir=DATA_DIR):
             continue                            # out of v1 scope; skip harmlessly
         parser, table = handler
         try:
-            row = parser(res)
-        except Exception as e:                  # fail-soft per resource (DECISIONS #009)
+            result = parser(res)                 # a parser may return one row or many
+        except Exception as e:                   # fail-soft per resource (DECISIONS #009)
             log.warning("skipped %s %s: %s", rtype, res.get("id"), e)
             continue
-        # Every row needs a patient_id: it's the PK for patients and the FK
-        # for children. No patient_id -> would be an orphan, so skip and log.
-        if not row.get("patient_id"):
-            log.warning("skipped %s %s: no patient_id", rtype, res.get("id"))
-            continue
-        tables[table].append(row)
+        rows = result if isinstance(result, list) else [result]
+        for row in rows:
+            # Every row needs a patient_id: PK for patients, FK for children.
+            # No patient_id -> would be an orphan, so skip and log.
+            if not row.get("patient_id"):
+                log.warning("skipped %s %s: no patient_id", rtype, res.get("id"))
+                continue
+            tables[table].append(row)
 
     log.info("resources seen: %s ...", dict(seen.most_common(5)))
     for name, rows in tables.items():
@@ -182,6 +252,7 @@ def main():
     write_csv(tables["patients"], OUT_DIR / "patients.csv")
     write_csv(tables["encounters"], OUT_DIR / "encounters.csv")
     write_csv(tables["conditions"], OUT_DIR / "conditions.csv")
+    write_csv(tables["observations"], OUT_DIR / "observations.csv")
 
 
 if __name__ == "__main__":
