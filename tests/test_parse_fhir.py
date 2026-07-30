@@ -122,13 +122,13 @@ def test_parse_encounter_fields_and_fk():
     assert row["class"] == "AMB"
     assert row["type_code"] == "162673000"
     assert row["type_display"] == "General examination"
-    assert row["start"] and row["end"]
+    assert row["start_time"] and row["end_time"]
 
 
 def test_parse_encounter_missing_period_ok():
     e = _encounter(); del e["period"]
     row = pf.parse_encounter(e)
-    assert row["start"] is None and row["end"] is None
+    assert row["start_time"] is None and row["end_time"] is None
 
 
 # --- conditions -----------------------------------------------------------

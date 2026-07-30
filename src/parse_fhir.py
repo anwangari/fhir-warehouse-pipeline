@@ -94,8 +94,8 @@ def parse_encounter(res):
         "type_code": type_code,
         "type_display": type_display,
         "status": res.get("status"),
-        "start": period.get("start"),
-        "end": period.get("end"),
+        "start_time": period.get("start"),   # 'end' is a SQL reserved word -> *_time
+        "end_time": period.get("end"),
     }
 
 

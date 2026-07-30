@@ -79,8 +79,8 @@ Ignored: `text`, `identifier[]`, mothersMaidenName/birthPlace extensions,
 | `type_code`    | `type[0].coding[0].code`                 | SNOMED |
 | `type_display` | `type[0].coding[0].display`              | |
 | `status`       | `status`                                 | usually `finished` |
-| `start`        | `period.start`                           | ISO 8601 w/ offset |
-| `end`          | `period.end`                             | may be absent |
+| `start_time`   | `period.start`                           | ISO 8601 w/ offset (`end` is a SQL reserved word → `*_time`) |
+| `end_time`     | `period.end`                             | may be absent |
 
 Ignored: `participant[]`, `serviceProvider`, `reasonCode`, `location`.
 
