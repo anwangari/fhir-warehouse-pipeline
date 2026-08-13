@@ -20,6 +20,12 @@ from pathlib import Path
 
 import boto3
 
+try:                                   # optional: load S3_BUCKET / AWS config from .env
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger("upload_s3")
 
