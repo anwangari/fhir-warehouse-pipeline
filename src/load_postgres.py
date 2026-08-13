@@ -18,6 +18,12 @@ from pathlib import Path
 
 import psycopg2
 
+try:                                   # optional: load DB config from a local .env
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger("load_postgres")
 
@@ -29,10 +35,15 @@ LOAD_ORDER = ["patients", "encounters", "conditions", "observations"]
 
 
 def connect():
-    """Connect using env vars; dev defaults match docker-compose.yml."""
+    """Connect using env vars; dev defaults match docker-compose.yml.
+
+    Default host is 127.0.0.1 (not "localhost") so we force IPv4 to Docker's
+    forwarded port on Windows — "localhost" can resolve to ::1 and hit a
+    stray native Postgres instead of the container.
+    """
     return psycopg2.connect(
-        host=os.getenv("PGHOST", "localhost"),
-        port=os.getenv("PGPORT", "5432"),
+        host=os.getenv("PGHOST", "127.0.0.1"),
+        port=os.getenv("PGPORT", "5431"),   # container publishes on 5431 (5432 = pgAdmin)
         dbname=os.getenv("PGDATABASE", "fhir_dw"),
         user=os.getenv("PGUSER", "fhir"),
         password=os.getenv("PGPASSWORD", "fhir"),
@@ -76,7 +87,15 @@ def verify_counts(cur, csv_dir=CSV_DIR):
 
 
 def main():
-    conn = connect()
+    try:
+        conn = connect()
+    except psycopg2.OperationalError as e:
+        log.error("could not connect to Postgres: %s", str(e).strip())
+        log.error("hints: (1) is the container up?  docker compose up -d")
+        log.error("       (2) on Windows use PGHOST=127.0.0.1, not localhost (IPv6/::1 trap)")
+        log.error("       (3) stale volume? credentials only init on a fresh volume: docker compose down -v && up -d")
+        log.error("       (4) check for stray PGHOST/PGUSER/PGPASSWORD env vars")
+        raise SystemExit(1)
     try:
         # `with conn` is one transaction: commit on success, roll back on error.
         with conn:

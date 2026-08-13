@@ -7,7 +7,8 @@ services:
       POSTGRES_USER: fhir
       POSTGRES_PASSWORD: fhir
     ports:
-      - "5432:5432"
+      # host 5432 is taken by a native/pgAdmin Postgres -> publish on 5431 instead
+      - "5431:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

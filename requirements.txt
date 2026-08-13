@@ -6,3 +6,4 @@ python-dotenv>=1.0        # load DB/AWS config from .env
 
 # Testing
 pytest>=8.0
+moto[s3]>=5.0        # mock AWS S3 for uploader tests
