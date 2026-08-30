@@ -169,3 +169,11 @@ Number entries sequentially. Never delete an entry — if a decision is reversed
 **Alternatives considered:** generic `SELECT`s that just exercise joins; matching on display text instead of codes.
 **Tradeoff / why:** Q1's `(disorder)` filter directly applies decision #009/domain finding — a naive `COUNT(*)` would mix "unemployed" with "diabetes." The window-function and code-based joins are exactly the fluency an interviewer probes for, and Q5 turns the domain deep-dive (diabetic/hypertensive kidney decline) into a single query — the strongest story in the repo. Coding on `code` not `display` is how real clinical analytics stays stable when display strings vary.
 **Revisit if:** These become dbt models in a later project — they port directly as `models/*.sql` with tests.
+
+### 020 — Idempotency via full-refresh (drop/recreate), one-command run.py
+**Date:** 2026-07-08
+**Context:** The pipeline must be safely re-runnable. Verified two consecutive loads yield identical counts (61 / 4,018 / 2,753 / 54,774) with no PK collisions.
+**Decisions:** (1) Idempotency is achieved by **full refresh** — the loader applies `schema.sql`, which drops and recreates the tables, then `COPY`s the CSVs, so every run rebuilds the warehouse from the CSVs. (2) A root **`run.py`** orchestrates the whole flow: optional S3 raw-land → parse → load → DQ, with step banners and timing, halting on any blocking DQ failure.
+**Alternatives considered:** upsert on primary key (`INSERT ... ON CONFLICT DO UPDATE`); `TRUNCATE`-and-reload without dropping; incremental/CDC loads.
+**Tradeoff / why:** Full refresh is the simplest correct idempotency for a small, fully-reproducible batch (the raw bundles are the source of truth, re-derivable any time) — no merge logic, no drift, the schema and data are rebuilt together so a DDL change can't desync from the data. Upsert matters when you're loading *deltas* into a table you can't drop; that's a data-volume/SLA decision, not a default — I'd graduate to it (or CDC) when full reload stops fitting the load window. `TRUNCATE`-only would keep a stale schema across DDL changes; dropping avoids that.
+**Revisit if:** Data volume or an SLA makes a full rebuild too slow — switch to upsert-on-PK or incremental loads keyed on resource id + a watermark.
