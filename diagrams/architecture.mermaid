@@ -1,0 +1,8 @@
+flowchart LR
+    A[Synthea<br/>FHIR bundles] --> B[parse_fhir.py<br/>flatten + resolve refs]
+    A -->|raw, immutable| S[(S3 landing zone<br/>ingest_date partitioned)]
+    B --> C[CSV staging]
+    C --> D[load_postgres.py<br/>COPY, FK order]
+    D --> E[(PostgreSQL<br/>warehouse)]
+    E --> F[dq_checks.py<br/>quality gates]
+    F --> G[analytics.sql<br/>clinical questions]

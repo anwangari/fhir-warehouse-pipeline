@@ -1,6 +1,8 @@
 # --- Private planning / working docs (keep local, not public) ---
 CLAUDE.md
 SPRINT.md
+DECISIONS.md
+docs/interview_stories.md
 
 # --- Generated data (synthetic, bulky, reproducible — never commit) ---
 data/
