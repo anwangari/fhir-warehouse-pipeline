@@ -8,6 +8,10 @@ docs/interview_stories.md
 *.mermaid
 scripts/generate_er_diagram.py
 
+# --- Synthea tool jar (downloaded, ~190MB, exceeds GitHub's 100MB limit) ---
+*.jar
+synthea-with-dependencies.jar
+
 # --- Generated data (synthetic, bulky, reproducible — never commit) ---
 data/
 *.csv
