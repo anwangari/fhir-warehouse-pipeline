@@ -4,6 +4,10 @@ SPRINT.md
 DECISIONS.md
 docs/interview_stories.md
 
+# --- Local diagram sources (Mermaid + generator) — keep local, ship only the images ---
+*.mermaid
+scripts/generate_er_diagram.py
+
 # --- Generated data (synthetic, bulky, reproducible — never commit) ---
 data/
 *.csv

@@ -13,16 +13,7 @@ provider or payer actually would.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    A[Synthea<br/>FHIR bundles] --> B[parse_fhir.py<br/>flatten + resolve refs]
-    A -->|raw, immutable| S[(S3 landing zone<br/>ingest_date partitioned)]
-    B --> C[CSV staging]
-    C --> D[load_postgres.py<br/>COPY, FK order]
-    D --> E[(PostgreSQL<br/>warehouse)]
-    E --> F[dq_checks.py<br/>quality gates]
-    F --> G[analytics.sql<br/>clinical questions]
-```
+![Architecture diagram](diagrams/architecture.png)
 
 Raw bundles land in S3 **before** transformation so history can be replayed if
 the parser or mapping changes. The CSV staging step keeps the transform
