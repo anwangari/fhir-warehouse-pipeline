@@ -40,6 +40,8 @@ Normalized relational: `patients` (parent) with `encounters`, `conditions`, and
 A representative run: **61 patients · 4,018 encounters · 2,753 conditions ·
 54,774 observations**, zero orphan rows.
 
+![Data model](diagrams/data-model.jpg)
+
 ## How to run
 
 Prerequisites: Docker, Python 3, Java 11+ (for Synthea). Windows users: see
