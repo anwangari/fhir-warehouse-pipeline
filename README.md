@@ -122,3 +122,7 @@ load is worse than a failed one.
 - **Raw is immutable** — land it first, transform second, so history replays.
 - **Every design choice has a documented tradeoff**, captured during
   development along with the alternatives considered.
+
+## Next STeps
+
+- HL7v2 Integrations through Mirth Connect.
